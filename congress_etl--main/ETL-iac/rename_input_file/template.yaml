@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: IaC for creating the ELT resources for the data pipeline + Notification
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 900
+    MemorySize: 128
+
+Parameters:
+  Client:
+    Type: String
+    Description: Client Name ${Client}
+  API:
+    Type: String
+    Description: Name of the API or Project ${API}
+  ENV:
+    Type: String
+    Description: Deploy environment (possible values test-prod) ${ENV}
+  AWSACCOUNT:
+    Type: String
+    Description: Account id ${AWSACCOUNT}
+    Default: ""
+  BUCKET:
+    Type: String
+    Description: Name of the bucket where the data is stored
+    Default: ""
+
+Resources:
+  RenameInputFileFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: !Sub ${Client}-${API}-rename_input_file-${ENV}
+      CodeUri: rename_input_file/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          API_NAME: !Sub ${API}
+          PROJECT_NAME: !Sub ${Client}
+          ENV: !Sub ${ENV}
+          BUCKET: !Sub ${BUCKET}
+      Architectures:
+        - x86_64
+      Policies:
+        - KMSDecryptPolicy:
+            KeyId: e1fe4390-4a85-41e1-8a1b-48d754dfbd31
+        - SSMParameterReadPolicy:
+            ParameterName: congress-apikey
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            - s3:PutObjectAcl
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:s3:::${BUCKET}
+            - !Sub arn:aws:s3:::${BUCKET}/*

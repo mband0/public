@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: IaC for creating the ELT resources for the data pipeline + Notification
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 900
+    MemorySize: 128
+
+Parameters:
+  Client:
+    Type: String
+    Description: Client Name ${Client}
+  API:
+    Type: String
+    Description: Name of the API or Project ${API}
+  ENV:
+    Type: String
+    Description: Deploy environment (possible values test-prod) ${ENV}
+  AWSACCOUNT:
+    Type: String
+    Description: Account id ${AWSACCOUNT}
+    Default: ""
+  HOST:
+    Type: String
+    Description: Host of RDS database destiny
+  SECRET:
+    Type: String
+    Description: Name of the secret with RDS credentials
+  SECRETARN:
+    Type: String
+    Description: Arn of the secret with RDS credentials
+  KeyId:
+    Type: String
+    Description: Id of the KMS Key that decrypts the SSM parameter
+    Default: ""
+  BUCKET:
+    Type: String
+    Description: Name of the bucket where the data is stored
+    Default: ""
+
+Resources:
+  StepFunctionETL:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Type: STANDARD
+      Name: !Sub ${Client}-${API}-Committee-ETL-${ENV}
+      DefinitionUri: step_function_definition.asl.json
+      DefinitionSubstitutions: 
+        GetCommitteeFunctionArn: !GetAtt GetCommitteeFunction.Arn
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetCommitteeFunction
+        - "CloudWatchEventsFullAccess"
+
+
+  GetCommitteeFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: !Sub ${Client}-${API}-get_committee-${ENV}
+      CodeUri: get_committee/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          API_NAME: !Sub ${API}
+          PROJECT_NAME: !Sub ${Client}
+          ENV: !Sub ${ENV}
+          HOST: !Sub ${HOST}
+          SECRET: !Sub ${SECRET}
+      Architectures:
+        - x86_64
+      Policies:
+        - KMSDecryptPolicy:
+            KeyId: ${KeyId}
+        - SSMParameterReadPolicy:
+            ParameterName: congress-apikey
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:s3:::${BUCKET}
+            - !Sub arn:aws:s3:::${BUCKET}/*
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+            - !Sub ${SECRETARN}
+

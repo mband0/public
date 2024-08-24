@@ -1,0 +1,8 @@
+[
+    actionCode,
+    actionDate,
+    recordedVotes,
+    sourceSystem,
+    text,
+    type
+]

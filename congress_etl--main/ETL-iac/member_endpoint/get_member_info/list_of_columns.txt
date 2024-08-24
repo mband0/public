@@ -1,0 +1,18 @@
+[
+    addressInformation,
+    bioguideId,
+    birthYear,
+    cosponsoredLegislation,
+    currentMember,
+    depiction,
+    directOrderName,
+    district,
+    firstName,
+    invertedOrderName,
+    lastName,
+    officialWebsiteUrl,
+    partyHistory,
+    state,
+    terms,
+    updateDate
+]

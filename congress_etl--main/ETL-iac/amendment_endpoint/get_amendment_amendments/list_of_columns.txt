@@ -1,0 +1,9 @@
+[
+    congress,
+    latestAction,
+    number,
+    purpose,
+    type,
+    updateDate,
+    url
+]

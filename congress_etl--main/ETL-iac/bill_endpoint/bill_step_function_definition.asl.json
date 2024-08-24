@@ -1,0 +1,378 @@
+{
+  "Comment": "Step function to get all bills related data from api",
+  "StartAt": "Map",
+  "States": {
+    "Map": {
+      "Type": "Map",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "DISTRIBUTED",
+          "ExecutionType": "STANDARD"
+        },
+        "StartAt": "Bill info",
+        "States": {
+          "Bill info": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetBillInfoFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Bill Actions",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "Wait"
+              }
+            ]
+          },
+          "Wait": {
+            "Type": "Wait",
+            "Seconds": 900,
+            "Next": "Bill info"
+          },
+          "Bill Actions": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetBillActionsFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Bill Committees",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "Wait(1)"
+              }
+            ]
+          },
+          "Wait(1)": {
+            "Type": "Wait",
+            "Seconds": 900,
+            "Next": "Bill Actions"
+          },
+          "Bill Committees": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetBillCommitteesFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Bill Cosponsors",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "Wait(2)"
+              }
+            ]
+          },
+          "Wait(2)": {
+            "Type": "Wait",
+            "Seconds": 900,
+            "Next": "Bill Committees"
+          },
+          "Bill Cosponsors": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetBillCosponsorsFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Bill Relatedbills",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "Wait(3)"
+              }
+            ]
+          },
+          "Wait(3)": {
+            "Type": "Wait",
+            "Seconds": 900,
+            "Next": "Bill Cosponsors"
+          },
+          "Bill Relatedbills": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetBillRelatedbillsFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Bill Subjects",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "Wait(4)"
+              }
+            ]
+          },
+          "Wait(4)": {
+            "Type": "Wait",
+            "Seconds": 900,
+            "Next": "Bill Relatedbills"
+          },
+          "Bill Subjects": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetBillSubjectsFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Bill Summaries",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "Wait(5)"
+              }
+            ]
+          },
+          "Wait(5)": {
+            "Type": "Wait",
+            "Seconds": 900,
+            "Next": "Bill Subjects"
+          },
+          "Bill Summaries": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetBillSummariesFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Bill Text",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "Wait(6)"
+              }
+            ]
+          },
+          "Wait(6)": {
+            "Type": "Wait",
+            "Seconds": 900,
+            "Next": "Bill Summaries"
+          },
+          "Bill Text": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetBillTextFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Bill Titles",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "Wait(7)"
+              }
+            ]
+          },
+          "Wait(7)": {
+            "Type": "Wait",
+            "Seconds": 900,
+            "Next": "Bill Text"
+          },
+          "Bill Titles": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetBillTitlesFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "ResultPath": null,
+            "Next": "Rename input file",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "Wait(8)"
+              }
+            ]
+          },
+          "Wait(8)": {
+            "Type": "Wait",
+            "Seconds": 900,
+            "Next": "Bill Titles"
+          },
+          "Rename input file": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "OutputPath": "$.Payload",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${RenameInputFileFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "End": true
+          }
+        }
+      },
+      "End": true,
+      "Label": "Map",
+      "MaxConcurrency": 1,
+      "ItemReader": {
+        "Resource": "arn:aws:states:::s3:listObjectsV2",
+        "Parameters": {
+          "Bucket": "congress-api-data",
+          "Prefix": "bills/bill/"
+        },
+        "ReaderConfig": {
+          "MaxItems": 20
+        }
+      }
+    }
+  }
+}

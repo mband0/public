@@ -1,0 +1,12 @@
+[
+    bioguideId,
+    firstName,
+    fullName,
+    isOriginalCosponsor,
+    lastName,
+    middleName,
+    party,
+    sponsorshipDate,
+    state,
+    url
+]

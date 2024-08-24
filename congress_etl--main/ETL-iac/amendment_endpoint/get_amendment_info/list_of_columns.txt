@@ -1,0 +1,14 @@
+[
+    actions,
+    amendedBill,
+    chamber,
+    congress,
+    latestAction,
+    number,
+    proposedDate,
+    purpose,
+    sponsors,
+    submittedDate,
+    type,
+    updateDate
+]

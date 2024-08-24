@@ -1,0 +1,490 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: IaC for creating the ELT resources for the data pipeline + Notification
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 900
+    MemorySize: 128
+
+Parameters:
+  Client:
+    Type: String
+    Description: Client Name ${Client}
+  API:
+    Type: String
+    Description: Name of the API or Project ${API}
+  ENV:
+    Type: String
+    Description: Deploy environment (possible values test-prod) ${ENV}
+  AWSACCOUNT:
+    Type: String
+    Description: Account id ${AWSACCOUNT}
+    Default: ""
+  BUCKET:
+    Type: String
+    Description: Name of the bucket where the data is stored
+    Default: ""
+  KeyId:
+    Type: String
+    Description: Id of the KMS Key that decrypts the SSM parameter
+    Default: ""
+  HOST:
+    Type: String
+    Description: Host of RDS database destiny
+  SECRET:
+    Type: String
+    Description: Name of the secret with RDS credentials
+  SECRETARN:
+    Type: String
+    Description: Arn of the secret with RDS credentials
+
+Resources:
+  StepFunctionETL:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Type: STANDARD
+      Name: !Sub ${Client}-${API}-bill-derivates-ETL-${ENV}
+      DefinitionUri: bill_step_function_definition.asl.json
+      DefinitionSubstitutions:
+        GetBillInfoFunctionArn: !GetAtt GetBillInfoFunction.Arn
+        GetBillActionsFunctionArn: !GetAtt GetBillActionsFunction.Arn
+        GetBillCommitteesFunctionArn: !GetAtt GetBillCommitteesFunction.Arn
+        GetBillCosponsorsFunctionArn: !GetAtt GetBillCosponsorsFunction.Arn
+        GetBillRelatedbillsFunctionArn: !GetAtt GetBillRelatedbillsFunction.Arn
+        GetBillSubjectsFunctionArn: !GetAtt GetBillSubjectsFunction.Arn
+        GetBillSummariesFunctionArn: !GetAtt GetBillSummariesFunction.Arn
+        GetBillTextFunctionArn: !GetAtt GetBillTextFunction.Arn
+        GetBillTitlesFunctionArn: !GetAtt GetBillTitlesFunction.Arn
+        RenameInputFileFunctionArn: !Sub "arn:aws:lambda:us-east-1:${AWSACCOUNT}:function:vt-congress-rename_input_file-test"
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetBillInfoFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetBillActionsFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetBillCommitteesFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetBillCosponsorsFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetBillRelatedbillsFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetBillSubjectsFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetBillSummariesFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetBillTextFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref GetBillTitlesFunction
+        - LambdaInvokePolicy:
+            FunctionName: "vt-congress-rename_input_file-test"
+        - "CloudWatchEventsFullAccess"
+        - Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - states:StartExecution
+            Resource:
+            - !Sub arn:aws:states:us-east-1:${AWSACCOUNT}:stateMachine:${Client}-${API}-bill-derivates-ETL-${ENV}
+          - Effect: Allow
+            Action:
+            - states:DescribeExecution
+            - states:StopExecution
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - events:PutTargets
+            - events:PutRule
+            - events:DescribeRule
+            Resource:
+            - arn:aws:events:us-east-1:${AWSACCOUNT}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:s3:::${BUCKET}
+            - !Sub arn:aws:s3:::${BUCKET}/*
+
+  GetBillInfoFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: !Sub ${Client}-${API}-get_bill_info-${ENV}
+      CodeUri: get_bill_info/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          API_NAME: !Sub ${API}
+          PROJECT_NAME: !Sub ${Client}
+          ENV: !Sub ${ENV}
+          BUCKET: !Sub ${BUCKET}
+          HOST: !Sub ${HOST}
+          SECRET: !Sub ${SECRET}
+      Architectures:
+        - x86_64
+      Policies:
+        - KMSDecryptPolicy:
+            KeyId: !Sub ${KeyId}
+        - SSMParameterReadPolicy:
+            ParameterName: congress-apikey
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:s3:::${BUCKET}
+            - !Sub arn:aws:s3:::${BUCKET}/*
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+            - !Sub ${SECRETARN}
+
+  GetBillActionsFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: !Sub ${Client}-${API}-get_bill_actions-${ENV}
+      CodeUri: get_bill_actions/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          API_NAME: !Sub ${API}
+          PROJECT_NAME: !Sub ${Client}
+          ENV: !Sub ${ENV}
+          BUCKET: !Sub ${BUCKET}
+          HOST: !Sub ${HOST}
+          SECRET: !Sub ${SECRET}
+      Architectures:
+        - x86_64
+      Policies:
+        - KMSDecryptPolicy:
+            KeyId: !Sub ${KeyId}
+        - SSMParameterReadPolicy:
+            ParameterName: congress-apikey
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:s3:::${BUCKET}
+            - !Sub arn:aws:s3:::${BUCKET}/*
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+            - !Sub ${SECRETARN}
+
+  GetBillCommitteesFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: !Sub ${Client}-${API}-get_bill_committees-${ENV}
+      CodeUri: get_bill_committees/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          API_NAME: !Sub ${API}
+          PROJECT_NAME: !Sub ${Client}
+          ENV: !Sub ${ENV}
+          BUCKET: !Sub ${BUCKET}
+          HOST: !Sub ${HOST}
+          SECRET: !Sub ${SECRET}
+      Architectures:
+        - x86_64
+      Policies:
+        - KMSDecryptPolicy:
+            KeyId: !Sub ${KeyId}
+        - SSMParameterReadPolicy:
+            ParameterName: congress-apikey
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:s3:::${BUCKET}
+            - !Sub arn:aws:s3:::${BUCKET}/*
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+            - !Sub ${SECRETARN}
+
+  GetBillCosponsorsFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: !Sub ${Client}-${API}-get_bill_cosponsors-${ENV}
+      CodeUri: get_bill_cosponsors/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          API_NAME: !Sub ${API}
+          PROJECT_NAME: !Sub ${Client}
+          ENV: !Sub ${ENV}
+          BUCKET: !Sub ${BUCKET}
+          HOST: !Sub ${HOST}
+          SECRET: !Sub ${SECRET}
+      Architectures:
+        - x86_64
+      Policies:
+        - KMSDecryptPolicy:
+            KeyId: !Sub ${KeyId}
+        - SSMParameterReadPolicy:
+            ParameterName: congress-apikey
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:s3:::${BUCKET}
+            - !Sub arn:aws:s3:::${BUCKET}/*
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+            - !Sub ${SECRETARN}
+
+  GetBillRelatedbillsFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: !Sub ${Client}-${API}-get_bill_relatedbills-${ENV}
+      CodeUri: get_bill_relatedbills/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          API_NAME: !Sub ${API}
+          PROJECT_NAME: !Sub ${Client}
+          ENV: !Sub ${ENV}
+          BUCKET: !Sub ${BUCKET}
+          HOST: !Sub ${HOST}
+          SECRET: !Sub ${SECRET}
+      Architectures:
+        - x86_64
+      Policies:
+        - KMSDecryptPolicy:
+            KeyId: !Sub ${KeyId}
+        - SSMParameterReadPolicy:
+            ParameterName: congress-apikey
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:s3:::${BUCKET}
+            - !Sub arn:aws:s3:::${BUCKET}/*
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+            - !Sub ${SECRETARN}
+
+  GetBillSubjectsFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: !Sub ${Client}-${API}-get_bill_subjects-${ENV}
+      CodeUri: get_bill_subjects/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          API_NAME: !Sub ${API}
+          PROJECT_NAME: !Sub ${Client}
+          ENV: !Sub ${ENV}
+          BUCKET: !Sub ${BUCKET}
+          HOST: !Sub ${HOST}
+          SECRET: !Sub ${SECRET}
+      Architectures:
+        - x86_64
+      Policies:
+        - KMSDecryptPolicy:
+            KeyId: !Sub ${KeyId}
+        - SSMParameterReadPolicy:
+            ParameterName: congress-apikey
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:s3:::${BUCKET}
+            - !Sub arn:aws:s3:::${BUCKET}/*
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+            - !Sub ${SECRETARN}
+
+  GetBillSummariesFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: !Sub ${Client}-${API}-get_bill_summaries-${ENV}
+      CodeUri: get_bill_summaries/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          API_NAME: !Sub ${API}
+          PROJECT_NAME: !Sub ${Client}
+          ENV: !Sub ${ENV}
+          BUCKET: !Sub ${BUCKET}
+          HOST: !Sub ${HOST}
+          SECRET: !Sub ${SECRET}
+      Architectures:
+        - x86_64
+      Policies:
+        - KMSDecryptPolicy:
+            KeyId: !Sub ${KeyId}
+        - SSMParameterReadPolicy:
+            ParameterName: congress-apikey
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:s3:::${BUCKET}
+            - !Sub arn:aws:s3:::${BUCKET}/*
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+            - !Sub ${SECRETARN}
+
+  GetBillTextFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: !Sub ${Client}-${API}-get_bill_text-${ENV}
+      CodeUri: get_bill_text/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          API_NAME: !Sub ${API}
+          PROJECT_NAME: !Sub ${Client}
+          ENV: !Sub ${ENV}
+          BUCKET: !Sub ${BUCKET}
+          HOST: !Sub ${HOST}
+          SECRET: !Sub ${SECRET}
+      Architectures:
+        - x86_64
+      Policies:
+        - KMSDecryptPolicy:
+            KeyId: !Sub ${KeyId}
+        - SSMParameterReadPolicy:
+            ParameterName: congress-apikey
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:s3:::${BUCKET}
+            - !Sub arn:aws:s3:::${BUCKET}/*
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+            - !Sub ${SECRETARN}
+
+  GetBillTitlesFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: !Sub ${Client}-${API}-get_bill_titles-${ENV}
+      CodeUri: get_bill_titles/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Environment:
+        Variables:
+          API_NAME: !Sub ${API}
+          PROJECT_NAME: !Sub ${Client}
+          ENV: !Sub ${ENV}
+          BUCKET: !Sub ${BUCKET}
+          HOST: !Sub ${HOST}
+          SECRET: !Sub ${SECRET}
+      Architectures:
+        - x86_64
+      Policies:
+        - KMSDecryptPolicy:
+            KeyId: !Sub ${KeyId}
+        - SSMParameterReadPolicy:
+            ParameterName: congress-apikey
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:ListBucket
+            - s3:DeleteObject
+            Effect: Allow
+            Resource:
+            - !Sub arn:aws:s3:::${BUCKET}
+            - !Sub arn:aws:s3:::${BUCKET}/*
+        - Version: '2012-10-17'
+          Statement:
+          - Action:
+            - secretsmanager:GetSecretValue
+            - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+            - !Sub ${SECRETARN}                                                     

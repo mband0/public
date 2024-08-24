@@ -1,0 +1,10 @@
+[
+    congress,
+    introducedDate,
+    latestAction,
+    number,
+    policyArea,
+    title,
+    type,
+    url
+]

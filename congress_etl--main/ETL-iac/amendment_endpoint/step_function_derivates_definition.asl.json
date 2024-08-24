@@ -1,0 +1,214 @@
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "Map1",
+  "States": {
+    "Map1": {
+      "Type": "Map",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "DISTRIBUTED",
+          "ExecutionType": "STANDARD"
+        },
+        "StartAt": "Amendment Info",
+        "States": {
+          "Amendment Info": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetAmendmentInfoFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Amendment Actions",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "StopExecution"
+              }
+            ]
+          },
+          "StopExecution": {
+            "Type": "Task",
+            "Parameters": {
+              "ExecutionArn.$": "$$.Execution.Id"
+            },
+            "Resource": "arn:aws:states:::aws-sdk:sfn:stopExecution.waitForTaskToken",
+            "End": true
+          },
+          "Amendment Actions": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetAmendmentActionsFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Amendment Amendments",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "StopExecution"
+              }
+            ]
+          },
+          "Amendment Amendments": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetAmendmentAmendmentsFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Amendment Cosponsors",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "StopExecution"
+              }
+            ]
+          },
+          "Amendment Cosponsors": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetAmendmentCosponsorsFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Amendment Text",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "StopExecution"
+              }
+            ]
+          },
+          "Amendment Text": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${GetAmendmentTextFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Rename Input File",
+            "ResultPath": null,
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "StopExecution"
+              }
+            ]
+          },
+          "Rename Input File": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "OutputPath": "$.Payload",
+            "Parameters": {
+              "Payload.$": "$",
+              "FunctionName": "${RenameInputFileFunctionArn}"
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "End": true
+          }
+        }
+      },
+      "End": true,
+      "Label": "Map",
+      "MaxConcurrency": 1,
+      "ItemReader": {
+          "Resource": "arn:aws:states:::s3:listObjectsV2",
+          "Parameters": {
+            "Bucket": "congress-api-data",
+            "Prefix": "amendments/amendment/"
+          }
+        }
+    }
+  }
+}

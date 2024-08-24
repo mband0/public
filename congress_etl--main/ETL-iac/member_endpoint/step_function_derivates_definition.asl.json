@@ -1,0 +1,159 @@
+{
+    "Comment": "A description of my state machine",
+    "StartAt": "Map",
+    "States": {
+      "Map": {
+        "Type": "Map",
+        "ItemProcessor": {
+          "ProcessorConfig": {
+            "Mode": "DISTRIBUTED",
+            "ExecutionType": "STANDARD"
+          },
+          "StartAt": "Member Info",
+          "States": {
+            "Member Info": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${GetMemberInfoFunctionArn}"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Next": "Member Sponsored Legislation",
+              "ResultPath": null,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "TooManyRequests"
+                  ],
+                  "Next": "Wait"
+                }
+              ]
+            },
+            "Wait": {
+              "Type": "Wait",
+              "Seconds": 900,
+              "Next": "Member Info"
+            },
+            "Member Sponsored Legislation": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${GetMemberSponsoredLegislationFunctionArn}"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Next": "Member Cosponsored Legislation",
+              "ResultPath": null,
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "TooManyRequests"
+                  ],
+                  "Next": "Wait (1)"
+                }
+              ]
+            },
+            "Wait (1)": {
+              "Type": "Wait",
+              "Seconds": 900,
+              "Next": "Member Sponsored Legislation"
+            },
+            "Member Cosponsored Legislation": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "OutputPath": "$.Payload",
+            "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${GetMemberCosponsoredLegislationFunctionArn}"
+              },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "Lambda.TooManyRequestsException"
+                ],
+                "IntervalSeconds": 1,
+                "MaxAttempts": 3,
+                "BackoffRate": 2
+              }
+            ],
+            "Next": "Rename Input File",
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "TooManyRequests"
+                ],
+                "Next": "Wait (2)"
+              }
+            ]
+          },
+          "Wait (2)": {
+            "Type": "Wait",
+            "Seconds": 900,
+            "Next": "Member Cosponsored Legislation"
+          },
+            "Rename Input File": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "OutputPath": "$.Payload",
+              "Parameters": {
+                "Payload.$": "$", 
+                "FunctionName": "${RenameInputFileFunctionArn}"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "End": true
+            }
+          }
+        },
+        "End": true,
+        "Label": "Map",
+        "MaxConcurrency": 1,
+        "ItemReader": {
+            "Resource": "arn:aws:states:::s3:listObjectsV2",
+            "Parameters": {
+              "Bucket": "congress-api-data",
+              "Prefix": "members/member/"
+            }
+          }
+      }
+    }
+  }

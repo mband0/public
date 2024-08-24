@@ -1,0 +1,65 @@
+{
+    "Comment": "A description of my state machine",
+    "StartAt": "Get members 0",
+    "States": {
+      "Get members 0": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "OutputPath": "$.Payload",
+        "Parameters": {
+          "Payload.$": "$",
+          "FunctionName": "${GetMemberFunctionArn}"
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException",
+              "Lambda.TooManyRequestsException"
+            ],
+            "IntervalSeconds": 1,
+            "MaxAttempts": 3,
+            "BackoffRate": 2
+          }
+        ],
+        "Next": "Map"
+      },
+      "Map": {
+        "Type": "Map",
+        "ItemProcessor": {
+          "ProcessorConfig": {
+            "Mode": "INLINE"
+          },
+          "StartAt": "Get members",
+          "States": {
+            "Get members": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "OutputPath": "$.Payload",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "${GetMemberFunctionArn}"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "End": true
+            }
+          }
+        },
+        "MaxConcurrency": 1,
+        "End": true
+      }    
+    }
+  }
